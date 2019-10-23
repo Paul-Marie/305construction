@@ -1,0 +1,86 @@
+#!/usr/bin/python3
+
+from sys import argv, stderr, exit
+
+# Do not modify this class, his default comportement is necessary for the program
+class   BadArgumentError(Exception):
+    def __init__(self, message, errors = "BadArgumentError"):
+        super().__init__(message)
+        self.errors = errors
+
+# Default object class
+class   Construct():
+    """ Definition of Construct class """
+    tmp = {}
+    dictionary = {}
+    def __init__(self, argument):
+        """ Initialise Separation's instance and check little errors """
+        self.fd = open(argument[1], 'r')
+        self.buff = self.fd.read().rstrip().split('\n')
+        for i in self.buff:
+            self.dictionary[i.split(';')[0]] = {"description": i.split(';')[1],
+                "duration": int(i.split(';')[2]), "list": i.split(';')[3:],
+                "begin": 0, "limit": 0, "prerequisites": [[]]}
+
+    def computeValue(self):
+        """ Calculate all printable value required by printValue method """
+        def recurse(original, name):
+            """  """
+            for i in self.dictionary[name]["list"]:
+                self.dictionary[original]["prerequisites"][-1].append(i)
+                recurse(original, i)
+            self.dictionary[original]["prerequisites"].append([])
+        for ky in self.dictionary.keys():
+            recurse(ky, ky)
+            self.dictionary[ky]["prerequisites"] = [i for i in self.dictionary[ky]["prerequisites"] if i]
+        print(self.dictionary)
+        for i in self.dictionary:
+            tmp = 0
+            duration = 0
+            for d in self.dictionary[i]["prerequisites"]:
+                for e in d: duration += self.dictionary[e]["duration"]
+                if duration > tmp: tmp = duration
+                duration = 0
+            self.dictionary[i]["begin"] = tmp
+        for i in self.dictionary: self.tmp[i] = self.dictionary[i]["begin"]
+        self.tmp = [(k, self.tmp[k]) for k in sorted(self.tmp, key=self.tmp.get)]
+        self.duration = max(i[1] + self.dictionary[i[0]]["duration"] for i in self.tmp)
+        tmp = {}
+        for i in self.tmp:
+            tmp[i[0]] = i[1]
+        for key in self.dictionary:
+            deadline = self.duration
+            for name in self.dictionary:
+                if (deadline > tmp[name] and key in self.dictionary[name]["list"]):
+                    deadline = tmp[name]
+            self.dictionary[key]["end"] = deadline - (
+                self.dictionary[key]["begin"] + self.dictionary[key]["duration"])
+
+    def printValue(self):
+        """ Print all computed value into the tab """
+        print("Total duration of construction: {} week{}\n"
+            .format(self.duration, "s" if self.duration > 1 else ""))
+        [print("{} must begin {}".format(i[0],
+            ("between t=" + str(i[1]) + " and t=" + str(i[1] + self.dictionary[i[0]]["end"]))
+            if self.dictionary[i[0]]["end"] != 0 else "at t=" + str(i[1]))) for i in self.tmp]
+        print()
+        for i in self.tmp:
+            print("{}\t({})\t{}{}".format(i[0], self.dictionary[i[0]]["end"],
+                ' ' * i[1], '=' * self.dictionary[i[0]]["duration"]))
+
+# Do not put more information in this function, it's must be clearer as possible
+def     main():
+    """ Main function who perform program's core action like arguments resolution """
+    if len(argv) is not 2:
+        raise BadArgumentError("Usage: ./303pacman file")
+    obj = Construct(argv)
+    obj.computeValue()
+    obj.printValue()
+
+# Don't touch at this except if u don't worry of problems
+if __name__ == "__main__":
+    try:
+        main()
+    except BaseException as error:
+        stderr.write(str(type(error).__name__) + ": {}\n".format(error))
+        exit(84)
